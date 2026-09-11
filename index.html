@@ -150,7 +150,7 @@
 
   <div class="container">
 
-    <!-- Upload Character -->
+    <!-- CHARACTER UPLOAD -->
     <div class="card">
 
       <h2>📸 Upload Your Character</h2>
@@ -173,7 +173,7 @@
     </div>
 
 
-    <!-- Select Pose -->
+    <!-- POSE SELECTION -->
     <div class="card">
 
       <h2>🎭 Select Pose</h2>
@@ -195,7 +195,7 @@
     </div>
 
 
-    <!-- Generate -->
+    <!-- GENERATE -->
     <div class="card">
 
       <button
@@ -207,7 +207,7 @@
     </div>
 
 
-    <!-- Result -->
+    <!-- RESULT -->
     <div class="card">
 
       <h2>🖼️ Result</h2>
@@ -234,7 +234,7 @@
       document.getElementById("poseContainer");
 
 
-    /* CREATE POSE BUTTONS */
+    /* CREATE POSE 1 - 50 */
 
     for (let i = 1; i <= 50; i++) {
 
@@ -259,39 +259,61 @@
 
         selectedPose = i;
 
-
-        /* TRY PNG FIRST */
-
-        const posePreview =
-          document.getElementById("posePreview");
-
-        posePreview.style.display = "block";
-
-        posePreview.onerror = function () {
-
-          /* IF PNG DOESN'T EXIST, TRY JPG */
-
-          posePreview.onerror = function () {
-
-            /* IF JPG DOESN'T EXIST, TRY JPEG */
-
-            posePreview.src =
-              "poses/pose" + i + ".jpeg";
-
-          };
-
-          posePreview.src =
-            "poses/pose" + i + ".jpg";
-        };
-
-        posePreview.src =
-          "poses/pose" + i + ".png";
-
+        showPoseImage(i);
       };
 
 
       poseContainer.appendChild(button);
+    }
 
+
+    /* AUTOMATICALLY FIND PNG / JPG / JPEG */
+
+    function showPoseImage(poseNumber) {
+
+      const posePreview =
+        document.getElementById("posePreview");
+
+      const extensions = [
+        "png",
+        "jpg",
+        "jpeg"
+      ];
+
+      let currentExtension = 0;
+
+      posePreview.style.display = "block";
+
+      function tryNextImage() {
+
+        if (currentExtension >= extensions.length) {
+
+          posePreview.style.display = "none";
+
+          return;
+        }
+
+        const extension =
+          extensions[currentExtension];
+
+        currentExtension++;
+
+        posePreview.src =
+          "poses/pose" +
+          poseNumber +
+          "." +
+          extension;
+      }
+
+      posePreview.onload = function () {
+        posePreview.style.display = "block";
+      };
+
+      posePreview.onerror = function () {
+        tryNextImage();
+      };
+
+      tryNextImage();
     }
 
 
@@ -332,7 +354,6 @@
       const result =
         document.getElementById("result");
 
-
       const characterImage =
         document
           .getElementById("imageInput")
@@ -362,7 +383,6 @@
         selectedPose +
         " selected.<br><br>" +
         "AI generation will be connected next.";
-
     }
 
   </script>
