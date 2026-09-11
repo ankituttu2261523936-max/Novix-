@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Novix - AI Anime Pose Generator</title>
 
   <style>
@@ -63,16 +64,6 @@
       background: #fafafa;
     }
 
-    textarea {
-      width: 100%;
-      height: 110px;
-      padding: 12px;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      resize: none;
-      font-size: 15px;
-    }
-
     .poses {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -107,7 +98,8 @@
       cursor: pointer;
     }
 
-    #preview {
+    #preview,
+    #posePreview {
       width: 100%;
       max-height: 350px;
       object-fit: contain;
@@ -158,56 +150,81 @@
 
   <div class="container">
 
+    <!-- Upload Character -->
     <div class="card">
+
       <h2>📸 Upload Your Character</h2>
 
-      <input type="file" id="imageInput" accept="image/*">
+      <input
+        type="file"
+        id="imageInput"
+        accept="image/*"
+      >
 
-      <img id="preview" alt="Image Preview">
+      <img
+        id="preview"
+        alt="Character Preview"
+      >
 
       <p class="info">
         Upload your anime character image.
       </p>
+
     </div>
 
-    <div class="card">
-      <h2>✏️ Enter Your Prompt</h2>
 
-      <textarea
-        id="prompt"
-        placeholder="Example: A happy anime character explaining something..."
-      ></textarea>
-    </div>
-
+    <!-- Select Pose -->
     <div class="card">
+
       <h2>🎭 Select Pose</h2>
 
-      <div class="poses" id="poseContainer"></div>
+      <div
+        class="poses"
+        id="poseContainer">
+      </div>
+
+      <img
+        id="posePreview"
+        alt="Selected Pose"
+      >
 
       <p class="info">
         Select the pose you want your character to perform.
       </p>
+
     </div>
 
+
+    <!-- Generate -->
     <div class="card">
-      <button class="generate" onclick="generateImage()">
+
+      <button
+        class="generate"
+        onclick="generateImage()">
         ⚡ Generate Image
       </button>
+
     </div>
 
+
+    <!-- Result -->
     <div class="card">
+
       <h2>🖼️ Result</h2>
 
       <div id="result">
         Your generated image will appear here.
       </div>
+
     </div>
 
   </div>
 
+
   <footer>
     © 2026 Novix
   </footer>
+
 
   <script>
 
@@ -216,70 +233,133 @@
     const poseContainer =
       document.getElementById("poseContainer");
 
+
+    /* CREATE POSE BUTTONS */
+
     for (let i = 1; i <= 50; i++) {
 
-      const button = document.createElement("div");
+      const button =
+        document.createElement("div");
 
       button.className = "pose";
-      button.textContent = "Pose " + i;
+
+      button.textContent =
+        "Pose " + i;
+
 
       button.onclick = function () {
 
-        document.querySelectorAll(".pose")
-          .forEach(p => p.classList.remove("selected"));
+        document
+          .querySelectorAll(".pose")
+          .forEach(p => {
+            p.classList.remove("selected");
+          });
 
         button.classList.add("selected");
 
         selectedPose = i;
+
+
+        /* TRY PNG FIRST */
+
+        const posePreview =
+          document.getElementById("posePreview");
+
+        posePreview.style.display = "block";
+
+        posePreview.onerror = function () {
+
+          /* IF PNG DOESN'T EXIST, TRY JPG */
+
+          posePreview.onerror = function () {
+
+            /* IF JPG DOESN'T EXIST, TRY JPEG */
+
+            posePreview.src =
+              "poses/pose" + i + ".jpeg";
+
+          };
+
+          posePreview.src =
+            "poses/pose" + i + ".jpg";
+        };
+
+        posePreview.src =
+          "poses/pose" + i + ".png";
+
       };
 
+
       poseContainer.appendChild(button);
+
     }
 
-    document.getElementById("imageInput")
-      .addEventListener("change", function(event) {
 
-        const file = event.target.files[0];
+    /* CHARACTER IMAGE PREVIEW */
 
-        if (file) {
+    document
+      .getElementById("imageInput")
+      .addEventListener(
+        "change",
+        function(event) {
 
-          const imageURL =
-            URL.createObjectURL(file);
+          const file =
+            event.target.files[0];
 
-          const preview =
-            document.getElementById("preview");
+          if (file) {
 
-          preview.src = imageURL;
-          preview.style.display = "block";
+            const imageURL =
+              URL.createObjectURL(file);
+
+            const preview =
+              document.getElementById("preview");
+
+            preview.src =
+              imageURL;
+
+            preview.style.display =
+              "block";
+          }
+
         }
-      });
+      );
+
+
+    /* GENERATE BUTTON */
 
     function generateImage() {
-
-      const prompt =
-        document.getElementById("prompt").value;
 
       const result =
         document.getElementById("result");
 
+
+      const characterImage =
+        document
+          .getElementById("imageInput")
+          .files[0];
+
+
+      if (!characterImage) {
+
+        result.innerHTML =
+          "⚠️ Please upload your character image.";
+
+        return;
+      }
+
+
       if (!selectedPose) {
 
         result.innerHTML =
-          "⚠️ Please select a pose first.";
+          "⚠️ Please select a pose.";
 
         return;
       }
 
-      if (!prompt.trim()) {
-
-        result.innerHTML =
-          "⚠️ Please enter a prompt.";
-
-        return;
-      }
 
       result.innerHTML =
-        "⏳ Pose " + selectedPose +
+        "⏳ Pose " +
+        selectedPose +
         " selected.<br><br>" +
         "AI generation will be connected next.";
 
