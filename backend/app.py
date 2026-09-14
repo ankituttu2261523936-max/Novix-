@@ -6,141 +6,199 @@ from gradio_client import Client, handle_file
 
 
 # ============================================================
-# NOVIX CONFIG
+# NOVIX - QWEN IMAGE EDIT ANYPOSE
 # ============================================================
 
-# बाद में यहाँ असली Hugging Face Space का नाम आएगा.
-# अभी इसे खाली ही रहने दो.
-MODEL_SPACE = os.getenv("MODEL_SPACE", "")
+MODEL_SPACE = "abidlabs/Qwen-Image-Edit-2511-AnyPose"
 
-# बाद में "Use via API" से मिलने वाला endpoint यहाँ आएगा.
-MODEL_API = os.getenv("MODEL_API", "")
+MODEL_API = "/infer"
 
-# अगर model को Hugging Face token चाहिए तो बाद में
-# environment variable के रूप में लगाया जा सकता है.
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 
 # ============================================================
-# POSE FILES
+# FIXED AI INSTRUCTION
 # ============================================================
+# User को यह prompt दिखाई नहीं देगा.
+# Backend इसे automatically भेजेगा.
 
-# GitHub project में poses folder:
-#
-# Novix/
-# ├── poses/
-# │   ├── pose1.png
-# │   ├── pose2.jpg
-# │   └── ...
-# └── backend/
-#     └── app.py
+FIXED_PROMPT = """
+Make the person in image 1 do the exact same pose of the person in image 2.
+Changing the style and background of the image of the person in image 1 is undesirable, so don't do it.
+The new pose should be pixel accurate to the pose we are trying to copy.
+The position of the arms and head and legs should be the same as the pose we are trying to copy.
+Change the field of view and angle to match exactly image 2.
+Head tilt and eye gaze pose should match the person in image 2.
+Remove the background of image 2, and replace it with the background of image 1.
+Don't change the identity of the person in image 1, keep their appearance the same.
+Don't change their facial features or hair style.
+"""
+
+
+# ============================================================
+# POSES FOLDER
+# ============================================================
 
 POSES_DIR = Path(__file__).resolve().parent.parent / "poses"
 
 
 def find_pose(pose_number):
-    """Find the selected pose image."""
+    """Find Pose 1-50 from the GitHub poses folder."""
 
     pose_number = int(pose_number)
 
     if pose_number < 1 or pose_number > 50:
-        raise ValueError("Pose must be between 1 and 50.")
+        raise ValueError("Pose number must be between 1 and 50.")
 
-    # PNG, JPG और JPEG सभी support होंगे.
+    # Supports PNG, JPG, JPEG and WEBP
     for extension in ["png", "jpg", "jpeg", "webp"]:
+
         pose_file = POSES_DIR / f"pose{pose_number}.{extension}"
 
         if pose_file.exists():
             return pose_file
 
     raise FileNotFoundError(
-        f"Pose {pose_number} was not found in the poses folder."
+        f"Pose {pose_number} was not found."
     )
 
 
 # ============================================================
-# IMAGE GENERATION
+# GENERATE IMAGE
 # ============================================================
 
 def generate_image(reference_image, pose_number):
 
     if reference_image is None:
-        raise gr.Error("Please upload your character image.")
-
-    if pose_number is None:
-        raise gr.Error("Please select a pose.")
-
-    # अभी API configured नहीं है.
-    # सही two-image model मिलने के बाद ये values भरेंगे.
-    if not MODEL_SPACE or not MODEL_API:
         raise gr.Error(
-            "The Novix image-generation API is not connected yet."
+            "Please upload your character image."
         )
 
+    if pose_number is None:
+        raise gr.Error(
+            "Please select a pose."
+        )
+
+    # Find selected pose
     try:
         pose_file = find_pose(pose_number)
 
     except Exception as error:
         raise gr.Error(str(error))
 
-    # Hugging Face Space से connect करें.
+    # Connect to Hugging Face Space
     try:
+
         if HF_TOKEN:
+
             client = Client(
                 MODEL_SPACE,
                 token=HF_TOKEN
             )
+
         else:
-            client = Client(MODEL_SPACE)
+
+            client = Client(
+                MODEL_SPACE
+            )
 
     except Exception as error:
+
         raise gr.Error(
-            f"Could not connect to the AI model: {error}"
+            f"Could not connect to AI model: {error}"
         )
 
-    # Character image + selected pose image
-    # model को भेजे जाएंगे.
+    # ========================================================
+    # SEND CHARACTER + POSE TO AI
+    # ========================================================
+
     try:
+
         result = client.predict(
-            reference_image=handle_file(reference_image),
-            pose_image=handle_file(str(pose_file)),
+            reference_image=handle_file(
+                reference_image
+            ),
+
+            pose_image=handle_file(
+                str(pose_file)
+            ),
+
+            # Hidden fixed prompt.
+            # User never sees this.
+            prompt=FIXED_PROMPT,
+
+            seed=0,
+
+            randomize_seed=True,
+
+            true_guidance_scale=1,
+
+            num_inference_steps=4,
+
+            height=1024,
+
+            width=1024,
+
+            rewrite_prompt=False,
+
             api_name=MODEL_API,
         )
 
     except Exception as error:
+
         raise gr.Error(
             f"Image generation failed: {error}"
         )
 
-    # अगर API multiple outputs लौटाती है,
-    # तो पहला output generated image माना जाएगा.
-    if isinstance(result, (list, tuple)):
-        if len(result) == 0:
-            raise gr.Error("The AI returned no image.")
+    # ========================================================
+    # GET GENERATED IMAGE
+    # ========================================================
 
-        return result[0]
+    if not result:
+        raise gr.Error(
+            "The AI returned no image."
+        )
 
-    return result
+    # API returns:
+    #
+    # [0] = Result Gallery
+    # [1] = Seed
+    #
+    generated_result = result[0]
+
+    # Result Gallery may contain multiple images.
+    if isinstance(generated_result, list):
+
+        if len(generated_result) == 0:
+            raise gr.Error(
+                "No generated image was returned."
+            )
+
+        return generated_result[0]
+
+    return generated_result
 
 
 # ============================================================
-# NOVIX BACKEND INTERFACE
+# BACKEND INTERFACE
 # ============================================================
 
-with gr.Blocks(title="Novix AI Anime Pose Generator") as demo:
+with gr.Blocks(
+    title="Novix AI Anime Pose Generator"
+) as demo:
 
     gr.Markdown(
         "# Novix AI Anime Pose Generator"
     )
 
-    # Character/reference image
+    # Character image
     reference_image = gr.Image(
         label="Character Image",
         type="filepath",
         sources=["upload"],
     )
 
-    # Pose 1-50
+    # Pose number
     pose_number = gr.Number(
         label="Pose Number",
         minimum=1,
@@ -149,12 +207,12 @@ with gr.Blocks(title="Novix AI Anime Pose Generator") as demo:
         value=1,
     )
 
-    # Generate button
+    # Generate
     generate_button = gr.Button(
         "Generate"
     )
 
-    # Generated result
+    # Result
     generated_image = gr.Image(
         label="Generated Image",
         type="filepath",
@@ -162,18 +220,22 @@ with gr.Blocks(title="Novix AI Anime Pose Generator") as demo:
 
     generate_button.click(
         fn=generate_image,
+
         inputs=[
             reference_image,
             pose_number,
         ],
+
         outputs=generated_image,
+
         api_name="generate",
     )
 
 
 # ============================================================
-# START SERVER
+# START
 # ============================================================
 
 if __name__ == "__main__":
+
     demo.launch()
